@@ -1,0 +1,21 @@
+[package]
+name = "rogueshard-launcher"
+version = "1.0.0"
+edition = "2021"
+description = "Rogue Shard Launcher: the mods of its mods folder patched into data.win (MSL-E's code, ModPatcher), then the game on the Rogue Shard engine"
+
+[[bin]]
+name = "Launcher"
+path = "src/main.rs"
+
+[dependencies]
+wry = "0.57"
+tao = "0.34"
+
+[build-dependencies]
+winresource = "0.1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
