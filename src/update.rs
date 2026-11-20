@@ -236,7 +236,8 @@ fn hidden(c: &mut Command) -> &mut Command {
 }
 
 pub fn releases() -> Result<Vec<Release>, String> {
-    let url = format!("https://api.github.com/repos/{REPO}/releases?per_page=30");
+    // RSR_UPDATE_URL: another release list (tests: a file:// JSON whose assets are file:// too)
+    let url = std::env::var("RSR_UPDATE_URL").unwrap_or_else(|_| format!("https://api.github.com/repos/{REPO}/releases?per_page=30"));
     let out = hidden(Command::new("curl.exe").args(["-sSfL", "--max-time", "20", "-A", AGENT, "-H", "Accept: application/vnd.github+json", &url]))
         .output()
         .map_err(|e| format!("curl.exe: {e}"))?;

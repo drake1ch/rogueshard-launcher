@@ -709,9 +709,25 @@ fn base64(b: &[u8]) -> String {
 fn main() {
     let root = root_dir();
     update::cleanup(&root);
+    {
+        // right after an update the old launcher may still be closing: Launcher.old.exe goes once it can
+        let r = root.clone();
+        std::thread::spawn(move || {
+            for _ in 0..40 {
+                if !r.join("Launcher.old.exe").exists() {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                update::cleanup(&r);
+            }
+        });
+    }
     let settings = load_settings(&root);
     // RSR_NO_UPDATE=1: no update check (tests)
     let mut update_due = std::env::var_os("RSR_NO_UPDATE").is_none();
+    // --updated: started by an update; no second launcher update now (a release whose exe has the
+    // wrong LAUNCHER_BUILD would otherwise update again on every start)
+    let just_updated = std::env::args().any(|a| a == "--updated");
     save_settings(&root, &settings); // keys.ini exists from the first start
     // --autoplay: Play as soon as the page is up (tests of the whole path without a click)
     let mut autoplay = std::env::args().any(|a| a == "--autoplay");
@@ -808,8 +824,8 @@ fn main() {
                                 let lg = |c: &str, t: &str| log(&p2, c, t);
                                 match update::releases() {
                                     Ok(rs) => {
-                                        if al && update::update_launcher(&root2, &rs, &lg) {
-                                            let _ = Command::new(root2.join("Launcher.exe")).current_dir(&root2).spawn();
+                                        if al && !just_updated && update::update_launcher(&root2, &rs, &lg) {
+                                            let _ = Command::new(root2.join("Launcher.exe")).arg("--updated").current_dir(&root2).spawn();
                                             let _ = p2.send_event(Ev::Quit);
                                             return;
                                         }
