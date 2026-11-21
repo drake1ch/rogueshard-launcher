@@ -33,7 +33,8 @@ use std::os::windows::process::CommandExt;
 
 const WIKI: &str = "https://drake1ch.github.io/rogueshard-wiki/";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-const SPEEDS: [u32; 5] = [1, 3, 5, 10, 20];
+const SPEEDS: [f64; 5] = [1.0, 3.0, 5.0, 10.0, 20.0]; // the default presets, each one changeable
+const SPEED_RANGE: (f64, f64) = (0.25, 100.0);
 const DEFAULT_KEYS: [&str; 5] = ["Ctrl+1", "Ctrl+2", "Ctrl+3", "Ctrl+4", "Ctrl+5"];
 
 enum Ev {
@@ -48,6 +49,7 @@ struct Settings {
     lang: String,
     rebuild: bool,
     keys: Vec<String>,
+    speeds: Vec<f64>, // the speed of each hotkey ("speed<i>=" in launcher.ini)
     disabled: Vec<String>, // mods switched off (file names without .sml)
     game: Option<PathBuf>,  // the game's folder chosen by hand ("game=" in launcher.ini), else Steam's
     auto_mod: bool,         // the mod from the GitHub releases (update.rs)
@@ -163,7 +165,7 @@ fn vanilla_of(game: &Path) -> Result<PathBuf, String> {
 // --- settings ---------------------------------------------------------------------------------
 
 fn load_settings(root: &Path) -> Settings {
-    let mut s = Settings { lang: "ru".into(), rebuild: false, disabled: vec![], game: None, auto_mod: true, auto_launcher: true, keys: DEFAULT_KEYS.iter().map(|k| k.to_string()).collect() };
+    let mut s = Settings { lang: "ru".into(), rebuild: false, disabled: vec![], game: None, auto_mod: true, auto_launcher: true, keys: DEFAULT_KEYS.iter().map(|k| k.to_string()).collect(), speeds: SPEEDS.to_vec() };
     if let Ok(t) = std::fs::read_to_string(root.join("launcher.ini")) {
         for l in t.lines() {
             let Some((k, v)) = l.split_once('=') else { continue };
@@ -176,6 +178,11 @@ fn load_settings(root: &Path) -> Settings {
                 "autolauncher" => s.auto_launcher = v != "0",
                 "disabled" => s.disabled = v.split('|').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect(),
                 _ => {
+                    if let Some(i) = k.strip_prefix("speed").and_then(|i| i.parse::<usize>().ok()) {
+                        if let (true, Some(v)) = (i < 5, parse_speed(v)) {
+                            s.speeds[i] = v;
+                        }
+                    }
                     if let Some(i) = k.strip_prefix("key").and_then(|i| i.parse::<usize>().ok()) {
                         if i < 5 && !v.is_empty() {
                             s.keys[i] = v.into();
@@ -215,13 +222,30 @@ fn save_settings(root: &Path, s: &Settings) {
     for (i, k) in s.keys.iter().enumerate() {
         t += &format!("key{i}={k}\n");
     }
+    for (i, v) in s.speeds.iter().enumerate() {
+        t += &format!("speed{i}={}\n", speed_text(*v));
+    }
     let _ = std::fs::write(root.join("launcher.ini"), t);
     // the engine's own file: "<speed> = <combo>"
     let mut k = String::from("# speed hotkeys, written by the launcher\n");
-    for (sp, key) in SPEEDS.iter().zip(&s.keys) {
-        k += &format!("{sp} = {key}\n");
+    for (sp, key) in s.speeds.iter().zip(&s.keys) {
+        k += &format!("{} = {key}\n", speed_text(*sp));
     }
     let _ = std::fs::write(root.join("keys.ini"), k);
+}
+
+// A speed typed by the player: "2", "1.5" or "1,5", an optional "x"; within SPEED_RANGE.
+fn parse_speed(v: &str) -> Option<f64> {
+    let x: &[char] = &['x', 'X', '\u{445}', '\u{425}'];
+    let v = v.trim().trim_start_matches(x).trim_end_matches(x).trim().replace(',', ".");
+    let n = v.parse::<f64>().ok()?;
+    (n.is_finite() && n >= SPEED_RANGE.0 && n <= SPEED_RANGE.1).then(|| (n * 100.0).round() / 100.0)
+}
+
+// 2.0 -> "2", 1.5 -> "1.5"
+fn speed_text(v: f64) -> String {
+    let t = format!("{:.2}", v);
+    t.trim_end_matches('0').trim_end_matches('.').to_string()
 }
 
 // --- the build --------------------------------------------------------------------------------
@@ -362,7 +386,7 @@ impl App {
         let data = self.root.join("cache").join("data.win");
         let built = if data.exists() { format!("cache\\data.win · {}", date_of(&data)) } else { String::new() };
         format!(
-            "rs.update({{lang:{},disabled:{},mods:{},gameDir:{},vanilla:{},built:{},fresh:{},rebuild:{},keys:{},autoMod:{},autoLauncher:{},launcherBuild:{}}})",
+            "rs.update({{lang:{},disabled:{},mods:{},gameDir:{},vanilla:{},built:{},fresh:{},rebuild:{},keys:{},speeds:[{}],autoMod:{},autoLauncher:{},launcherBuild:{}}})",
             js_str(&self.settings.lang),
             js_list(&self.settings.disabled),
             js_list(&names),
@@ -372,6 +396,7 @@ impl App {
             fresh,
             self.settings.rebuild,
             js_list(&self.settings.keys),
+            self.settings.speeds.iter().map(|v| speed_text(*v)).collect::<Vec<_>>().join(","),
             self.settings.auto_mod,
             self.settings.auto_launcher,
             update::LAUNCHER_BUILD
@@ -894,6 +919,15 @@ fn main() {
                             save_settings(&a.root, &a.settings);
                         }
                     }
+                    "speeds" => {
+                        let v: Vec<Option<f64>> = arg.split('|').map(parse_speed).collect();
+                        if v.len() == 5 && v.iter().all(|x| x.is_some()) {
+                            a.settings.speeds = v.into_iter().flatten().collect();
+                            save_settings(&a.root, &a.settings);
+                        }
+                        let js = a.state_js();
+                        let _ = webview.evaluate_script(&js);
+                    }
                     "open" => {
                         let target = match arg.as_str() {
                             "mods" => a.root.join("mods").display().to_string(),
@@ -944,4 +978,23 @@ fn main() {
             _ => {}
         }
     });
+}
+
+#[cfg(test)]
+mod speed_tests {
+    use super::*;
+
+    #[test]
+    fn typed_speeds_are_read() {
+        assert_eq!(parse_speed("2"), Some(2.0));
+        assert_eq!(parse_speed(" x1,5 "), Some(1.5));
+        assert_eq!(parse_speed("4x"), Some(4.0));
+        assert_eq!(parse_speed("\u{445}7"), Some(7.0));
+        assert_eq!(parse_speed("0"), None);
+        assert_eq!(parse_speed("500"), None);
+        assert_eq!(parse_speed("abc"), None);
+        assert_eq!(speed_text(2.0), "2");
+        assert_eq!(speed_text(1.5), "1.5");
+        assert_eq!(speed_text(0.25), "0.25");
+    }
 }
