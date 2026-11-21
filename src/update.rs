@@ -229,6 +229,13 @@ pub struct Release {
     pub assets: Vec<(String, String)>, // name, download url
 }
 
+// Windows' own curl.exe and tar.exe (System32), not whatever else PATH has: Git's tar is GNU tar
+// and does not read zip
+fn sys_tool(name: &str) -> PathBuf {
+    let p = PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into())).join("System32").join(name);
+    if p.exists() { p } else { PathBuf::from(name) }
+}
+
 fn hidden(c: &mut Command) -> &mut Command {
     #[cfg(windows)]
     c.creation_flags(0x0800_0000);
@@ -238,7 +245,7 @@ fn hidden(c: &mut Command) -> &mut Command {
 pub fn releases() -> Result<Vec<Release>, String> {
     // RSR_UPDATE_URL: another release list (tests: a file:// JSON whose assets are file:// too)
     let url = std::env::var("RSR_UPDATE_URL").unwrap_or_else(|_| format!("https://api.github.com/repos/{REPO}/releases?per_page=30"));
-    let out = hidden(Command::new("curl.exe").args(["-sSfL", "--max-time", "20", "-A", AGENT, "-H", "Accept: application/vnd.github+json", &url]))
+    let out = hidden(Command::new(sys_tool("curl.exe")).args(["-sSfL", "--max-time", "20", "-A", AGENT, "-H", "Accept: application/vnd.github+json", &url]))
         .output()
         .map_err(|e| format!("curl.exe: {e}"))?;
     if !out.status.success() {
@@ -266,7 +273,7 @@ pub fn releases_of(json: &str) -> Vec<Release> {
 fn download(url: &str, out: &Path) -> Result<(), String> {
     let part = out.with_extension("part");
     let _ = std::fs::remove_file(&part);
-    let st = hidden(Command::new("curl.exe").args(["-sSfL", "--retry", "2", "--max-time", "900", "-A", AGENT, "-o"]).arg(&part).arg(url))
+    let st = hidden(Command::new(sys_tool("curl.exe")).args(["-sSfL", "--retry", "2", "--max-time", "900", "-A", AGENT, "-o"]).arg(&part).arg(url))
         .status()
         .map_err(|e| format!("curl.exe: {e}"))?;
     if !st.success() || std::fs::metadata(&part).map(|m| m.len()).unwrap_or(0) == 0 {
@@ -344,7 +351,7 @@ pub fn update_launcher(root: &Path, rs: &[Release], log: &dyn Fn(&str, &str)) ->
     }
     let x = work.join("x");
     let _ = std::fs::create_dir_all(&x);
-    let ok = hidden(Command::new("tar.exe").arg("-xf").arg(&zip).arg("-C").arg(&x)).status().map(|s| s.success()).unwrap_or(false);
+    let ok = hidden(Command::new(sys_tool("tar.exe")).arg("-xf").arg(&zip).arg("-C").arg(&x)).status().map(|s| s.success()).unwrap_or(false);
     let Some(src) = ok.then(|| find_launcher_dir(&x)).flatten() else {
         log("e", &format!("Launcher #{n}: the archive has no Launcher.exe"));
         return false;
