@@ -1,10 +1,10 @@
 // Updates from the GitHub releases of the launcher's public repository (REPO):
 //
-// - the mod: the newest release tagged "v<version>" with a RogueShard.sml asset. The file goes
-//   to mods\RogueShard.sml, and mods\RogueShard.version keeps the version it came from (the bot
-//   writes the same file into every launcher zip, "1.0.13.0-dev24" for a dev build). A newer
-//   release replaces it: 1.0.13.0 is newer than 1.0.13.0-dev24, never older. Without the file
-//   (an older zip) only a release published after the .sml file was written replaces it.
+// - the mod: the most recently published release tagged "v<version>" ("v1.0.13.0", or
+//   "v1.0.13.0-dev2" for a build of an unreleased version) with a RogueShard.sml asset. The file
+//   goes to mods\RogueShard.sml and mods\RogueShard.version keeps the release's version. When the
+//   mod is missing, or the version file is missing or differs, the release's mod is downloaded
+//   (the user's rule, 21.11.2026: the mod is always the one of the newest release).
 // - the launcher: the newest release tagged "launcher-<n>" with a .zip asset, n above
 //   LAUNCHER_BUILD. Its Launcher.exe, rsr.exe, README.txt and patcher\ replace ours (the running
 //   Launcher.exe is renamed to Launcher.old.exe first, which Windows allows, and is deleted on
@@ -280,26 +280,17 @@ fn download(url: &str, out: &Path) -> Result<(), String> {
 // --- the mod ----------------------------------------------------------------------------------
 
 // the newest mod release: (version, release)
+// the most recently published mod release (ISO dates order as strings)
 pub fn latest_mod(rs: &[Release]) -> Option<(String, &Release)> {
     rs.iter()
         .filter(|r| r.tag.starts_with(['v', 'V']) && r.assets.iter().any(|(n, _)| n.eq_ignore_ascii_case("RogueShard.sml")))
         .map(|r| (r.tag[1..].to_string(), r))
-        .max_by(|a, b| ver_key(&a.0).cmp(&ver_key(&b.0)))
+        .max_by(|a, b| a.1.published.cmp(&b.1.published))
 }
 
-// Whether the release's mod replaces the one in mods\: none there, or an older version, or (no
-// version file) a file older than the release.
-pub fn mod_wanted(sml: &Path, installed: Option<&str>, version: &str, published: &str) -> bool {
-    if !sml.exists() {
-        return true;
-    }
-    match installed {
-        Some(v) => ver_key(version) > ver_key(v),
-        None => {
-            let file = std::fs::metadata(sml).and_then(|m| m.modified()).ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs() as i64);
-            matches!((file, iso_secs(published)), (Some(f), Some(p)) if p > f)
-        }
-    }
+// Whether the release's mod replaces the one in mods\: none there, no version file, or another version.
+pub fn mod_wanted(sml: &Path, installed: Option<&str>, version: &str) -> bool {
+    !sml.exists() || installed.map(str::trim) != Some(version)
 }
 
 pub fn update_mod(root: &Path, rs: &[Release], log: &dyn Fn(&str, &str)) {
@@ -308,7 +299,7 @@ pub fn update_mod(root: &Path, rs: &[Release], log: &dyn Fn(&str, &str)) {
     let sml = dir.join("RogueShard.sml");
     let vfile = dir.join("RogueShard.version");
     let installed = std::fs::read_to_string(&vfile).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    if !mod_wanted(&sml, installed.as_deref(), &version, &r.published) {
+    if !mod_wanted(&sml, installed.as_deref(), &version) {
         log("", &format!("Rogue Shard {}: up to date", installed.as_deref().unwrap_or(&version)));
         return;
     }
@@ -449,18 +440,17 @@ mod tests {
     }
 
     #[test]
-    fn a_newer_release_replaces_the_mod_an_older_one_does_not() {
+    fn the_mod_is_downloaded_when_missing_or_of_another_version() {
         let d = std::env::temp_dir().join("rs_launcher_update_test");
         let _ = std::fs::create_dir_all(&d);
         let sml = d.join("RogueShard.sml");
         let _ = std::fs::remove_file(&sml);
-        assert!(mod_wanted(&sml, None, "1.0.13.0", "2026-11-20T12:00:00Z"));
+        assert!(mod_wanted(&sml, Some("1.0.13.0"), "1.0.13.0"));
         std::fs::write(&sml, b"x").unwrap();
-        assert!(mod_wanted(&sml, Some("1.0.13.0-dev24"), "1.0.13.0", ""));
-        assert!(!mod_wanted(&sml, Some("1.0.13.0-dev24"), "1.0.12.8", ""));
-        assert!(!mod_wanted(&sml, Some("1.0.13.0"), "1.0.13.0", ""));
-        // no version file: only a release newer than the file
-        assert!(!mod_wanted(&sml, None, "1.0.13.0", "2020-01-01T00:00:00Z"));
-        assert!(mod_wanted(&sml, None, "1.0.13.0", "2099-01-01T00:00:00Z"));
+        assert!(!mod_wanted(&sml, Some("1.0.13.0"), "1.0.13.0"));
+        assert!(!mod_wanted(&sml, Some("1.0.13.0-dev2\n"), "1.0.13.0-dev2"));
+        assert!(mod_wanted(&sml, Some("1.0.13.0-dev24"), "1.0.13.0"));
+        assert!(mod_wanted(&sml, Some("1.0.14.0"), "1.0.13.0"));
+        assert!(mod_wanted(&sml, None, "1.0.13.0"));
     }
 }
