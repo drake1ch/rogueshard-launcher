@@ -1,18 +1,18 @@
 // Rogue Shard Launcher: a window (ui/index.html in a WebView) over the launcher's folder:
 //
 //   Launcher.exe   this
-//   rsr.exe        the Rogue Shard engine
+//   Rogue Shard.exe  the Rogue Shard engine (rsr.exe until launcher-13; cargo builds it as rsr.exe)
 //   patcher\       ModPatcher: MSL-E's own code and the .NET runtime (RogueShardTools/ModPatcher)
 //   mods\          the player's .sml mods (load_order.txt optional)
 //   cache\         data.win built from them, build.key, patch.log
-//   keys.ini       the speed hotkeys, read by rsr.exe
+//   keys.ini       the speed hotkeys, read by the engine
 //   launcher.ini   language, "rebuild every launch", the hotkeys
 //   last_run.log   the engine's output of the last game
 //
 // Play: when mods\ holds .sml files and the build is stale (mods, load order or vanilla file
 // changed, not the patcher: cache\build.key, the same key as `rsr launch`) or "rebuild" is on, ModPatcher
 // builds cache\data.win, as the MSL-E window would, showing each mod's progress; then the game
-// starts on rsr.exe with that data.win. The game's own folder is never written.
+// starts on the engine with that data.win. The game's own folder is never written.
 
 #![windows_subsystem = "windows"]
 
@@ -470,7 +470,7 @@ fn play(app: Arc<Mutex<App>>, proxy: EventLoopProxy<Ev>) {
     }
     // the game
     send_js(&proxy, "rs.update({phase:\"running\",modStates:{}})".into());
-    let rsr = root.join("rsr.exe");
+    let rsr = update::game_exe(&root);
     let mut c = Command::new(&rsr);
     c.current_dir(&root).arg("launch");
     if let Some(d) = &data {

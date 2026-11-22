@@ -6,7 +6,7 @@
 //   mod is missing, or the version file is missing or differs, the release's mod is downloaded
 //   (the user's rule, 21.11.2026: the mod is always the one of the newest release).
 // - the launcher: the newest release tagged "launcher-<n>" with a .zip asset, n above
-//   LAUNCHER_BUILD. Its Launcher.exe, rsr.exe, README.txt and patcher\ replace ours (the running
+//   LAUNCHER_BUILD. Its Launcher.exe, Rogue Shard.exe, README.txt and patcher\ replace ours (the running
 //   Launcher.exe is renamed to Launcher.old.exe first, which Windows allows, and is deleted on
 //   the next start); mods\, launcher.ini, keys.ini and cache\ stay. Then the new launcher starts.
 //
@@ -20,8 +20,27 @@ use std::os::windows::process::CommandExt;
 
 pub const REPO: &str = "drake1ch/rogueshard-launcher";
 // this launcher's own number, the N of its "launcher-N" release (and of its Discord post)
-pub const LAUNCHER_BUILD: u32 = 13;
+pub const LAUNCHER_BUILD: u32 = 14;
 const AGENT: &str = "RogueShardLauncher";
+// the engine, named so in the Task Manager (rsr.exe until launcher-13, see game_exe and cleanup)
+pub const GAME_EXE: &str = "Rogue Shard.exe";
+
+// the engine to start: Rogue Shard.exe, else a folder's old rsr.exe
+pub fn game_exe(root: &Path) -> PathBuf {
+    let g = root.join(GAME_EXE);
+    if g.exists() || !root.join("rsr.exe").exists() {
+        g
+    } else {
+        root.join("rsr.exe")
+    }
+}
+
+// rsr.exe goes once Rogue Shard.exe is there
+fn retire_rsr(root: &Path) {
+    if root.join(GAME_EXE).exists() {
+        let _ = std::fs::remove_file(root.join("rsr.exe"));
+    }
+}
 
 // --- JSON -------------------------------------------------------------------------------------
 
@@ -386,7 +405,7 @@ fn install(root: &Path, src: &Path) -> Result<(), String> {
         let _ = std::fs::rename(&old, &me);
         return Err(format!("Launcher.exe: {e}"));
     }
-    for f in ["rsr.exe", "README.txt"] {
+    for f in [GAME_EXE, "rsr.exe", "README.txt"] {
         if src.join(f).exists() {
             std::fs::copy(src.join(f), root.join(f)).map_err(|e| format!("{f}: {e}"))?;
         }
@@ -394,6 +413,7 @@ fn install(root: &Path, src: &Path) -> Result<(), String> {
     if src.join("patcher").is_dir() {
         copy_dir(&src.join("patcher"), &root.join("patcher")).map_err(|e| format!("patcher: {e}"))?;
     }
+    retire_rsr(root);
     Ok(())
 }
 
@@ -410,8 +430,18 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-// left over from an update: the old exe and the download
+// left over from an update: the old exe and the download. A launcher up to 13 installs only
+// rsr.exe of the archive, so its update to this one leaves Rogue Shard.exe in the unpacked
+// download (cache\update\x): it is taken from there before the download goes.
 pub fn cleanup(root: &Path) {
+    if !root.join(GAME_EXE).exists() {
+        if let Some(src) = find_launcher_dir(&root.join("cache").join("update").join("x")) {
+            if src.join(GAME_EXE).exists() {
+                let _ = std::fs::copy(src.join(GAME_EXE), root.join(GAME_EXE));
+            }
+        }
+    }
+    retire_rsr(root);
     let _ = std::fs::remove_file(root.join("Launcher.old.exe"));
     let _ = std::fs::remove_dir_all(root.join("cache").join("update"));
 }
@@ -419,6 +449,40 @@ pub fn cleanup(root: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn folder(name: &str, files: &[&str]) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("rsl_test_{name}_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        for f in files {
+            let p = d.join(f);
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(&p, f).unwrap();
+        }
+        d
+    }
+
+    #[test]
+    fn rsr_exe_becomes_rogue_shard_exe() {
+        // a launcher up to 13 updated to this one: its install copied rsr.exe only, the new
+        // engine waits in the unpacked download
+        let d = folder("old", &["Launcher.exe", "rsr.exe", "cache/update/x/RogueShard_Launcher/Launcher.exe", "cache/update/x/RogueShard_Launcher/Rogue Shard.exe"]);
+        assert_eq!(game_exe(&d), d.join("rsr.exe"));
+        cleanup(&d);
+        assert_eq!(std::fs::read_to_string(d.join(GAME_EXE)).unwrap(), "cache/update/x/RogueShard_Launcher/Rogue Shard.exe");
+        assert!(!d.join("rsr.exe").exists() && !d.join("cache").join("update").exists());
+        assert_eq!(game_exe(&d), d.join(GAME_EXE));
+        let _ = std::fs::remove_dir_all(&d);
+        // this launcher's own install over an rsr.exe folder
+        let d = folder("new", &["Launcher.exe", "rsr.exe", "src/Launcher.exe", "src/Rogue Shard.exe", "src/README.txt"]);
+        install(&d, &d.join("src")).unwrap();
+        assert!(d.join(GAME_EXE).exists() && !d.join("rsr.exe").exists());
+        let _ = std::fs::remove_dir_all(&d);
+        // a folder with nothing to take: rsr.exe stays the engine
+        let d = folder("none", &["Launcher.exe", "rsr.exe"]);
+        cleanup(&d);
+        assert_eq!(game_exe(&d), d.join("rsr.exe"));
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn versions_order_dev_builds_before_their_release() {
