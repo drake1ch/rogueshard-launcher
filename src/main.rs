@@ -9,8 +9,8 @@
 //   launcher.ini   language, "rebuild every launch", the hotkeys
 //   last_run.log   the engine's output of the last game
 //
-// Play: when mods\ holds .sml files and the build is stale (mods, load order, vanilla file or
-// patcher changed: cache\build.key, the same key as `rsr launch`) or "rebuild" is on, ModPatcher
+// Play: when mods\ holds .sml files and the build is stale (mods, load order or vanilla file
+// changed, not the patcher: cache\build.key, the same key as `rsr launch`) or "rebuild" is on, ModPatcher
 // builds cache\data.win, as the MSL-E window would, showing each mod's progress; then the game
 // starts on rsr.exe with that data.win. The game's own folder is never written.
 
@@ -283,19 +283,23 @@ fn stamp(p: &Path) -> String {
     format!("{} {} {}", p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(), m.map(|m| m.len()).unwrap_or(0), t)
 }
 
-// cache\build.key, written the same way by `rsr launch`
+// cache\build.key, written the same way by `rsr launch`. The patcher is not in it: a launcher
+// update replaces patcher\, and that alone must not rebuild data.win (only the mods, their order
+// or the vanilla file do)
 fn build_key(root: &Path, vanilla: &Path, mods: &[PathBuf]) -> String {
-    let patcher = root.join("patcher").join("ModPatcher.exe");
     let mut mods = mods.to_vec();
     mods.sort();
-    let mut key = vec![format!("patcher {}", stamp(&patcher)), format!("vanilla {} {}", vanilla.display(), stamp(vanilla))];
+    let mut key = vec![format!("vanilla {} {}", vanilla.display(), stamp(vanilla))];
     key.extend(mods.iter().map(|p| format!("mod {}", stamp(p))));
     key.push(format!("order {}", std::fs::read_to_string(root.join("mods").join("load_order.txt")).unwrap_or_default().trim()));
     key.join("\n")
 }
 
+// a key written before launcher-11 has a "patcher" line: ignored, so that cache stays fresh
 fn is_fresh(root: &Path, key: &str) -> bool {
-    root.join("cache").join("data.win").exists() && std::fs::read_to_string(root.join("cache").join("build.key")).ok().as_deref() == Some(key)
+    let old = std::fs::read_to_string(root.join("cache").join("build.key")).unwrap_or_default();
+    let old: Vec<&str> = old.lines().filter(|l| !l.starts_with("patcher ")).collect();
+    root.join("cache").join("data.win").exists() && old.join("\n") == key
 }
 
 // --- JS ---------------------------------------------------------------------------------------
