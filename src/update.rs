@@ -20,7 +20,7 @@ use std::os::windows::process::CommandExt;
 
 pub const REPO: &str = "drake1ch/rogueshard-launcher";
 // this launcher's own number, the N of its "launcher-N" release (and of its Discord post)
-pub const LAUNCHER_BUILD: u32 = 9;
+pub const LAUNCHER_BUILD: u32 = 10;
 const AGENT: &str = "RogueShardLauncher";
 
 // --- JSON -------------------------------------------------------------------------------------
