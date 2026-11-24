@@ -18,7 +18,7 @@ a { color: var(--link); text-decoration: none; cursor: pointer; }
 a:hover { text-decoration: underline; }
 .body { display: grid; grid-template-columns: 290px 1fr; height: 100%; }
 .side { background: var(--panel); border-right: 1px solid var(--line); padding: 22px 22px 18px; display: flex; flex-direction: column; }
-.side img { width: 140px; display: block; margin: 0 auto 4px; }
+.side img { width: 140px; display: block; margin: 0 auto 10px; }
 .side h1 { text-align: center; font-size: 18px; letter-spacing: 4px; text-transform: uppercase; margin: 4px 0 2px; }
 .side .ver { text-align: center; color: var(--dim); font-size: 12px; margin-bottom: 20px; }
 .play { display: block; width: 100%; padding: 14px 0; border: 1px solid #5a7a3a; border-radius: 6px; cursor: pointer;
@@ -92,7 +92,6 @@ a:hover { text-decoration: underline; }
 <div class="body" id="root">
   <aside class="side">
     <img src="logo.png" alt="Rogue Shard">
-    <h1>Rogue Shard</h1>
     <div class="ver" id="ver"></div>
     <button class="play" id="play"></button>
     <div class="bar"><i id="fill"></i></div>
@@ -138,7 +137,7 @@ a:hover { text-decoration: underline; }
 <script>
 const T = {
   ru: {
-    ver: "лаунчер", play: "Играть", playBusy: "Патчинг...", playRunning: "Игра запущена",
+    ver: "версия", play: "Играть", playBusy: "Патчинг...", playRunning: "Игра запущена",
     saves: "Сохранения", wiki: "Вики и патчноуты", report: "Сообщить об ошибке",
     mods: "Моды", modsFolder: "Открыть папку mods", noMods: "Папка mods пуста: запустится игра без модов",
     game: "Игра", source: "Исходный data.win", built: "Сборка с модами", notBuilt: "ещё не собрана", noGame: "не найдена",
@@ -153,7 +152,7 @@ const T = {
     crashed: "<b>Игра завершилась с ошибкой.</b> Отчёт: last_run.log",
   },
   en: {
-    ver: "launcher", play: "Play", playBusy: "Patching...", playRunning: "Game running",
+    ver: "version", play: "Play", playBusy: "Patching...", playRunning: "Game running",
     saves: "Saves", wiki: "Wiki and patch notes", report: "Report a bug",
     mods: "Mods", modsFolder: "Open the mods folder", noMods: "The mods folder is empty: the game starts without mods",
     game: "Game", source: "Original data.win", built: "Modded build", notBuilt: "not built yet", noGame: "not found",
