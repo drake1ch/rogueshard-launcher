@@ -390,7 +390,7 @@ impl App {
         let data = self.root.join("cache").join("data.win");
         let built = if data.exists() { format!("cache\\data.win · {}", date_of(&data)) } else { String::new() };
         format!(
-            "rs.update({{lang:{},disabled:{},mods:{},gameDir:{},vanilla:{},built:{},fresh:{},rebuild:{},keys:{},speeds:[{}],autoMod:{},autoLauncher:{},launcherBuild:{}}})",
+            "rs.update({{lang:{},disabled:{},mods:{},gameDir:{},vanilla:{},built:{},fresh:{},rebuild:{},keys:{},speeds:[{}],autoMod:{},autoLauncher:{},launcherBuild:{},launcherVersion:{}}})",
             js_str(&self.settings.lang),
             js_list(&self.settings.disabled),
             js_list(&names),
@@ -403,7 +403,8 @@ impl App {
             self.settings.speeds.iter().map(|v| speed_text(*v)).collect::<Vec<_>>().join(","),
             self.settings.auto_mod,
             self.settings.auto_launcher,
-            update::LAUNCHER_BUILD
+            update::LAUNCHER_BUILD,
+            js_str(&update::launcher_version(update::LAUNCHER_BUILD))
         )
     }
 }

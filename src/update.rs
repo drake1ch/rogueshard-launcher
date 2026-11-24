@@ -20,7 +20,12 @@ use std::os::windows::process::CommandExt;
 
 pub const REPO: &str = "drake1ch/rogueshard-launcher";
 // this launcher's own number, the N of its "launcher-N" release (and of its Discord post)
-pub const LAUNCHER_BUILD: u32 = 14;
+pub const LAUNCHER_BUILD: u32 = 15;
+// the version players see, 1.<build> (1.15 is launcher-15): the tag stays launcher-<build>, which
+// every launcher since the first looks for
+pub fn launcher_version(build: u32) -> String {
+    format!("1.{build}")
+}
 const AGENT: &str = "RogueShardLauncher";
 // the engine, named so in the Task Manager (rsr.exe until launcher-13, see game_exe and cleanup)
 pub const GAME_EXE: &str = "Rogue Shard.exe";
@@ -359,29 +364,29 @@ pub fn update_launcher(root: &Path, rs: &[Release], log: &dyn Fn(&str, &str)) ->
     if n <= LAUNCHER_BUILD {
         return false;
     }
-    log("", &format!("Launcher #{n}: downloading..."));
+    log("", &format!("Launcher {}: downloading...", launcher_version(n)));
     let work = root.join("cache").join("update");
     let _ = std::fs::remove_dir_all(&work);
     let _ = std::fs::create_dir_all(&work);
     let zip = work.join("launcher.zip");
     if let Err(e) = download(&url, &zip) {
-        log("e", &format!("Launcher #{n}: {e}"));
+        log("e", &format!("Launcher {}: {e}", launcher_version(n)));
         return false;
     }
     let x = work.join("x");
     let _ = std::fs::create_dir_all(&x);
     let ok = hidden(Command::new(sys_tool("tar.exe")).arg("-xf").arg(&zip).arg("-C").arg(&x)).status().map(|s| s.success()).unwrap_or(false);
     let Some(src) = ok.then(|| find_launcher_dir(&x)).flatten() else {
-        log("e", &format!("Launcher #{n}: the archive has no Launcher.exe"));
+        log("e", &format!("Launcher {}: the archive has no Launcher.exe", launcher_version(n)));
         return false;
     };
     match install(root, &src) {
         Ok(()) => {
-            log("o", &format!("Launcher #{n}: installed, restarting"));
+            log("o", &format!("Launcher {}: installed, restarting", launcher_version(n)));
             true
         }
         Err(e) => {
-            log("e", &format!("Launcher #{n}: {e}"));
+            log("e", &format!("Launcher {}: {e}", launcher_version(n)));
             false
         }
     }

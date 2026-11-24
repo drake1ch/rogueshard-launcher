@@ -138,7 +138,7 @@ a:hover { text-decoration: underline; }
 <script>
 const T = {
   ru: {
-    ver: "движок Rogue Shard", play: "Играть", playBusy: "Патчинг...", playRunning: "Игра запущена",
+    ver: "лаунчер", play: "Играть", playBusy: "Патчинг...", playRunning: "Игра запущена",
     saves: "Сохранения", wiki: "Вики и патчноуты", report: "Сообщить об ошибке",
     mods: "Моды", modsFolder: "Открыть папку mods", noMods: "Папка mods пуста: запустится игра без модов",
     game: "Игра", source: "Исходный data.win", built: "Сборка с модами", notBuilt: "ещё не собрана", noGame: "не найдена",
@@ -153,7 +153,7 @@ const T = {
     crashed: "<b>Игра завершилась с ошибкой.</b> Отчёт: last_run.log",
   },
   en: {
-    ver: "Rogue Shard engine", play: "Play", playBusy: "Patching...", playRunning: "Game running",
+    ver: "launcher", play: "Play", playBusy: "Patching...", playRunning: "Game running",
     saves: "Saves", wiki: "Wiki and patch notes", report: "Report a bug",
     mods: "Mods", modsFolder: "Open the mods folder", noMods: "The mods folder is empty: the game starts without mods",
     game: "Game", source: "Original data.win", built: "Modded build", notBuilt: "not built yet", noGame: "not found",
@@ -189,7 +189,7 @@ function render() {
   const t = T[S.lang];
   document.documentElement.lang = S.lang;
   document.querySelectorAll("[data-t]").forEach(e => e.innerHTML = t[e.dataset.t]);
-  document.getElementById("ver").textContent = t.ver;
+  document.getElementById("ver").textContent = S.launcherVersion ? t.ver + " " + S.launcherVersion : "";
   const on = S.mods.filter(m => !S.disabled.some(d => d.toLowerCase() === m.toLowerCase())).length;
   document.getElementById("modcount").textContent = on === S.mods.length ? S.mods.length : on + " / " + S.mods.length;
   const list = document.getElementById("mods");
