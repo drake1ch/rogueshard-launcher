@@ -20,7 +20,7 @@ use std::os::windows::process::CommandExt;
 
 pub const REPO: &str = "drake1ch/rogueshard-launcher";
 // this launcher's own number, the N of its "launcher-N" release (and of its Discord post)
-pub const LAUNCHER_BUILD: u32 = 15;
+pub const LAUNCHER_BUILD: u32 = 16;
 // the version players see, 1.<build> (1.15 is launcher-15): the tag stays launcher-<build>, which
 // every launcher since the first looks for
 pub fn launcher_version(build: u32) -> String {

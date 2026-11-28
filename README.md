@@ -19,7 +19,7 @@
 
 - **Обновлять мод автоматически**: при запуске лаунчер скачивает новый `RogueShard.sml` из
   последнего релиза `v<версия>` этого репозитория.
-- **Обновлять лаунчер автоматически**: новый лаунчер (релиз `launcher-<n>`, версия 1.<n>: `launcher-15` это 1.15) ставится поверх
+- **Обновлять лаунчер автоматически**: новый лаунчер (релиз `launcher-<n>`, версия 1.<n>: `launcher-16` это 1.16) ставится поверх
   старого, его версия видна под названием в окне лаунчера. Папка `mods`, настройки и сборка остаются.
 
 ---
@@ -31,7 +31,7 @@ a `data.win` and runs the game on the Rogue Shard engine, without changing the g
 
 Download `RogueShard_Launcher-<n>.zip` from [Releases](../../releases), unpack it anywhere and run
 `Launcher.exe`. Settings has two switches, both on by default: the mod updates itself from the
-newest `v<version>` release, and the launcher from the newest `launcher-<n>` release (version 1.<n>: `launcher-15` is 1.15, shown under the title).
+newest `v<version>` release, and the launcher from the newest `launcher-<n>` release (version 1.<n>: `launcher-16` is 1.16, shown under the title).
 
 ## Building
 
